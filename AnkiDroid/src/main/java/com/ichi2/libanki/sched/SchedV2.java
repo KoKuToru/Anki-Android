@@ -60,6 +60,7 @@ import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.ListIterator;
@@ -848,11 +849,13 @@ public class SchedV2 extends AbstractSched {
         if (mHaveCounts && mNewCount == 0) {
             return false;
         }
+        List<List<Long>> newCids = new ArrayList<List<Long>>();
+        mNewQueue.clear();
         while (!mNewDids.isEmpty()) {
             long did = mNewDids.getFirst();
             int lim = Math.min(mQueueLimit, _deckNewLimit(did, true));
             if (lim != 0) {
-                mNewQueue.clear();
+                List<Long> Cids = new LinkedList<>();
                 String idName = (allowSibling) ? "id": "nid";
                 long id = (allowSibling) ? currentCardId(): currentCardNid();
                     /* Difference with upstream: we take current card into account.
@@ -866,17 +869,32 @@ public class SchedV2 extends AbstractSched {
                  */
                     // fill the queue with the current did
                 for (long cid : mCol.getDb().queryLongList("SELECT id FROM cards WHERE did = ? AND queue = " + Consts.QUEUE_TYPE_NEW + " AND " + idName + "!= ? ORDER BY due, ord LIMIT ?", did, id, lim)) {
-                    mNewQueue.add(cid);
+                    Cids.add(cid);
                 }
-                if (!mNewQueue.isEmpty()) {
-                    // Note: libanki reverses mNewQueue and returns the last element in _getNewCard().
-                    // AnkiDroid differs by leaving the queue intact and returning the *first* element
-                    // in _getNewCard().
-                    return true;
+                if (!Cids.isEmpty()) {
+                    newCids.add(Cids);
                 }
             }
             // nothing left in the deck; move to next
             mNewDids.remove();
+        }
+        boolean run = true;
+        while (run) {
+            run = false;
+            for (List<Long> cards : newCids) {
+                if (cards.isEmpty()) {
+                    continue;
+                }
+                run = true;
+                mNewQueue.add(cards.get(0));
+                cards.remove(0);
+                if (mNewQueue.size() >= mNewCount) {
+                    return true;
+                }
+            }
+        }
+        if (!mNewQueue.isEmpty()) {
+            return true;
         }
         if (mHaveCounts && mNewCount != 0) {
             // if we didn't get a card but the count is non-zero,
