@@ -896,7 +896,7 @@ public class SchedV2 extends AbstractSched {
         if (!mNewQueue.isEmpty()) {
             return true;
         }
-        if (mHaveCounts && mNewCount != 0) {
+        if (mHaveCounts && mNewCount != 0 && !allowSibling) {
             // if we didn't get a card but the count is non-zero,
             // we need to check again for any cards that were
             // removed from the queue but not buried
